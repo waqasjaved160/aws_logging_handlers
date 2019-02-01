@@ -13,6 +13,7 @@ import signal
 import threading
 import queue
 import gzip
+import time
 
 DEFAULT_CHUNK_SIZE = 5 * 1024 ** 2  # 5 MB
 DEFAULT_ROTATION_TIME_SECS = 12 * 60 * 60  # 12 hours
@@ -61,12 +62,12 @@ class S3Streamer(BufferedIOBase):
 
         self.session = Session(aws_access_key_id=key_id, aws_secret_access_key=secret, aws_session_token=token)
         self.s3 = self.session.resource('s3')
-        self.start_time = int(datetime.utcnow().strftime('%s'))
+        self.start_time = int(time.time())
         self.key = key.strip('/')
         self.chunk_size = chunk_size
         self.max_file_log_time = max_file_log_time
         self.max_file_size_bytes = max_file_size_bytes
-        self.current_file_name = "{}_{}".format(key, int(datetime.utcnow().strftime('%s')))
+        self.current_file_name = "{}_{}".format(key, int(time.time()))
         if compress:
             self.current_file_name = "{}.gz".format(self.current_file_name)
         self.encoder = encoder
@@ -135,7 +136,7 @@ class S3Streamer(BufferedIOBase):
 
         temp_object = self._current_object
         self.add_task(Task(self._close_stream, stream_object=temp_object))
-        self.start_time = int(datetime.utcnow().strftime('%s'))
+        self.start_time = int(time.time())
         new_filename = self.get_filename()
         self._current_object = self._get_stream_object(new_filename)
 
@@ -188,8 +189,7 @@ class S3Streamer(BufferedIOBase):
             self._rotate_chunk()
 
         if (self.max_file_size_bytes and self._current_object.byte_count > self.max_file_size_bytes) or (
-                self.max_file_log_time and int(
-            datetime.utcnow().strftime('%s')) - self.start_time > self.max_file_log_time):
+                self.max_file_log_time and int(time.time()) - self.start_time > self.max_file_log_time):
             self._rotate_file()
 
         return len(s)
